@@ -22,6 +22,18 @@ class User:
         self.system_level = None   # USER / ADMIN
         self.user_type = None      # CLIENT, VENDOR, FUNNEL, etc.
 
+class System:
+    def __init__(self):
+        self.create_at = None      # Date created
+        self.create_by = None      # Created by
+        self.update_at = None      # Date updated
+        self.update_by = None      # Updated by
+        self.delete_at = None      # Date deleted
+        self.delete_by = None      # Deleted by
+        self.module = None         # Module name
+        self.firebase_id = None  # Firebase ID (if applicable)
+        self.user_level = None      # User level (if applicable)
+
 class Job:
     def __init__(self):
         self.designation = None      # Name of the position => Programmer

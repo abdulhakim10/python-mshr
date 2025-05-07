@@ -11,3 +11,6 @@ ENV/
 
 # VS Code settings
 .vscode/
+
+# test files
+*.test.py
