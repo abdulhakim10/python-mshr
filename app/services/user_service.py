@@ -203,19 +203,19 @@ class BankInfo:
 
 
 class UserSchema(BaseModel):
-    id: Optional[str] = Field(
-        default=None, title="MongoDB ID", description="MongoDB object ID"
-    )
+    # id: Optional[str] = Field(
+    #     default=None, title="MongoDB ID", description="MongoDB object ID"
+    # )
     uid: Optional[str] = Field(
         default=None, title="UID", description="System-defined user ID"
     )
-    app_code: Optional[str] = Field(
-        default=None, title="App Code", description="App/client code"
-    )
-    branch_id: Optional[int] = Field(
+    # app_code: Optional[str] = Field(
+    #     default=None, title="App Code", description="App/client code"
+    # )
+    branch_id: Optional[str] = Field(
         default=None, title="Branch ID", description="Branch identifier"
     )
-    id: Optional[int] = Field(
+    id: Optional[str] = Field(
         default=None, title="DB ID", description="Database auto-increment ID"
     )
     ic: Optional[str] = Field(
@@ -257,32 +257,52 @@ class UserSchema(BaseModel):
     status_name: Optional[str] = Field(
         default=None, title="Status Name", description="Status description"
     )
-    is_delete: Optional[bool] = Field(
+    is_delete: Optional[str] = Field(
         default=None, title="Is Deleted", description="Soft delete flag"
+    )
+    login_status: Optional[str] = Field(
+        default=None, title="Login Status", description="Login status"
     )
     system_level: Optional[str] = Field(
         default=None, title="System Level", description="USER / ADMIN"
     )
-    user_type: Optional[str] = Field(
-        default=None, title="User Type", description="CLIENT, VENDOR, FUNNEL, etc."
-    )
+    # user_type: Optional[str] = Field(
+    #     default=None, title="User Type", description="CLIENT, VENDOR, FUNNEL, etc."
+    # )
 
 
 # end: UserSchema
+
+
+class FilterSchema(BaseModel):
+    filter_branch_id: Optional[str] = "0"
+    filter_delete: Optional[str] = ""
+    filter_search: Optional[str] = ""
+    filter_division: Optional[str] = ""
+    filter_position: Optional[str] = ""
+    filter_status: Optional[str] = ""
+    filter_gender: Optional[str] = ""
+    filter_user_status: Optional[str] = ""
+    page_order: Optional[str] = "id"
+    page_sort: Optional[str] = "desc"
+    page_limit: Optional[int] = 10
+    page_start: Optional[int] = 1
+
+
 class SystemSchema(BaseModel):
-    create_at: Optional[str] = Field(
+    create_at: Optional[datetime] = Field(
         default=None, title="Created At", description="Creation date"
     )
     create_by: Optional[str] = Field(
         default=None, title="Created By", description="Creator ID"
     )
-    update_at: Optional[str] = Field(
+    update_at: Optional[datetime] = Field(
         default=None, title="Updated At", description="Last update date"
     )
     update_by: Optional[str] = Field(
         default=None, title="Updated By", description="Last updated by"
     )
-    delete_at: Optional[str] = Field(
+    delete_at: Optional[datetime] = Field(
         default=None, title="Deleted At", description="Deletion date"
     )
     delete_by: Optional[str] = Field(
@@ -355,7 +375,7 @@ class PersonalSchema(BaseModel):
     nick_name: Optional[str] = Field(
         default=None, title="Nick Name", description="Nickname or salutation"
     )
-    gender: Optional[int] = Field(
+    gender: Optional[str] = Field(
         default=None, title="Gender", description="0 = Female, 1 = Male"
     )
     birth_date: Optional[str] = Field(
@@ -434,7 +454,7 @@ class AddressSchema(BaseModel):
     address2: Optional[AddressDataSchema] = Field(
         default=None, title="Alternate Address 1", description="Alternate address"
     )
-    address3: Optional[AddressDataSchema] = Field(
+    address3: Optional[str] = Field(
         default=None, title="Alternate Address 2", description="Alternate address"
     )
 
@@ -497,6 +517,7 @@ class WorkExperienceSchema(BaseModel):
     level: Optional[str] = Field(default=None, title="Level", description="Job level")
 
 
+# end: WorkExperienceSchema
 class ChildrenSchema(BaseModel):
     ic: Optional[str] = Field(default=None, title="IC", description="IC or ID")
     name: Optional[str] = Field(default=None, title="Name", description="Full name")
@@ -511,7 +532,6 @@ class ChildrenSchema(BaseModel):
 # end: ChildrenSchema
 
 
-# end: WorkExperienceSchema
 class FamilySchema(BaseModel):
     spouse_name: Optional[str] = Field(
         default=None, title="Spouse Name", description="Name of the spouse"
@@ -590,7 +610,7 @@ class BankInfoSchema(BaseModel):
 # end: BankInfoSchema
 # The main processor class for this module.
 # This class will be used to process the request and response.
-class CoaUserManager(
+class UserProfile(
     User,
     System,
     Job,
@@ -607,46 +627,93 @@ class CoaUserManager(
 ):
     # Declare direct main table for this class.
     # This table will be used for all the CRUD operation automatically
-    main_table = "fin_coa_item"
+    main_table = "usr"
 
     def __init__(self, db):
         self.err_id = None  # Initialize err_id attribute
-        self.Err = ErrorHandler()  # Initialize Err attribute (ensure it's set later or inherited)
+        self.Err = (
+            ErrorHandler()
+        )  # Initialize Err attribute (ensure it's set later or inherited)
         self.total_count = 0  # Initialize total_count attribute
+        self.total_data = 0  # Initialize total_data attribute
         self.db = db
         # self.sysuser = sysuser
 
     # Map the "main_table" fields with object in this module.
     # Important for easy manage. Single place to change the table operation
-    def _main_table_mapping(self, request):
+    def _main_table_mapping(
+        self,
+        request: UserSchema,
+        address: AddressSchema,
+        personal: PersonalSchema,
+        job: JobSchema,
+        system: SystemSchema,
+        family: FamilySchema,
+    ):
+        """Map the fields of the main table to the object fields."""
+
         return {
-            "app": request.app,
-            "sid": request.branch,
-            "type": request.account,
-            "code": request.code,
-            "item": request.name,
-            "ccode": request.group,
-            "cate": request.group_name,
-            "year": request.year,
-            "mon": request.month,
-            "sta": request.status,
-            "idx": request.index,
-            "rem": request.remark,
-            "ref": request.reference,
-            "des": request.description,
-            "val": request.value,
-            "price": request.price,
-            "unit": request.unit,
-            "taxper": request.tax_rate,
-            "taxcod": request.tax_code,
-            "taxtyp": request.tax_type,
-            "cost": request.cost,
-            "margin": request.margin,
-            "marginper": request.margin_rate,
-            "lessval": request.less,
-            "lessper": request.less_rate,
-            # "adm": self.sysuser.uid,
-        }
+            "uid": request.uid,
+            "id": request.id,
+            "sch_id": request.branch_id,
+            "name": request.name,
+            "ic": request.ic,
+            "hp": request.phone,
+            "mel": request.email,
+            "syslevel": request.system_level,
+            "jobdiv": job.division,
+            "jobsta": job.status,
+            "login_sta": request.login_status,
+            "login_ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "login_period": datetime("%Y-%m-%d %H:%M:%S"),
+            "resettokenexpiration": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "password_set": "1",
+            "status": request.status,
+            "ts": system.create_at,
+            "adm": system.create_by,
+            "delts": system.delete_at,
+            "delby": system.delete_by,
+            "nick": personal.nick_name,
+            "sex": personal.gender,
+            "bday": personal.birth_date,
+            "race": personal.race,
+            "religion": personal.religion,
+            "file": personal.file_profile,
+            "isdel": request.is_delete,
+            "citizen": personal.citizen,
+            "edulevel": personal.education,
+            "marital": personal.marital,
+            "bstate": personal.birth_place,
+            "job": job.designation,
+            "joblvl": job.level,
+            "jobstart": job.start_date,
+            "jobend": job.end_date,
+            "jobconfirm": job.confirm_date,
+            "excontract": job.contract_expiry,
+            "exvisa": job.visa_expiry,
+            "expassport": job.passport_expiry,
+            "expermit": job.permit_expiry,
+            "addr": address.main.line1,
+            "addr1": address.main.line2,
+            "addr2": address.main.line3,
+            "city": address.main.city,
+            "pcode": address.main.postcode,
+            "state": address.main.state,
+            "country": address.main.country,
+            "mailaddr": address.address2.line1,
+            "mailaddr2": address.address2.line2,
+            "mailaddr3": address.address2.line3,
+            "mailcity": address.address2.city,
+            "mailpcode": address.address2.postcode,
+            "mailstate": address.address2.state,
+            "mailcountry": address.address2.country,
+            "spname": family.spouse_name,
+            "spic": family.spouse_ic,
+            "spjob": family.spouse_job,
+            "spcomp": family.spouse_company,
+            "sptel": family.spouse_phone,
+            "json_data": json.dumps({"father_name": family.father_name, "mother_name": family.mother_name}),
+        } 
 
     # end: _main_table_mapping
 
@@ -667,7 +734,7 @@ class CoaUserManager(
             "success": True,
             "message": message,
             "status_code": 200,
-            "data": self.to_dict(data) if data else None,
+            "data": data,
         }
 
     async def _return_false(self, message, error=None, data=None):
@@ -679,16 +746,82 @@ class CoaUserManager(
             "data": self.to_dict(data) if data else None,
         }
 
-    async def fetch_user(self):
-        filters = ["isdel=0"]
-        params = []
+    async def fetch_user(self, request: FilterSchema):
+        filters = []
+        params = {}
 
-        sql_data = """
-            SELECT * FROM usr WHERE isdel = 0
+        # Filtering
+        filters.append("isdel = %(isdel)s")
+        params["isdel"] = (
+            request.filter_delete if request.filter_delete is not None else 0
+        )
+
+        if request.filter_branch_id:
+            filters.append("sch_id = %(branch_id)s")
+            params["branch_id"] = request.filter_branch_id
+        if request.filter_division:
+            filters.append("jobdiv = %(division)s")
+            params["division"] = request.filter_division
+        if request.filter_position:
+            filters.append("job = %(position)s")
+            params["position"] = request.filter_position
+        if request.filter_status:
+            filters.append("jobsta = %(status)s")
+            params["status"] = request.filter_status
+        if request.filter_gender:
+            filters.append("sex = %(gender)s")
+            params["gender"] = request.filter_gender
+        if request.filter_user_status:
+            filters.append("status = %(user_status)s")
+            params["user_status"] = request.filter_user_status
+
+        if request.filter_search:
+            filters.append(
+                """(name LIKE %(search)s OR ic LIKE %(search)s OR mel LIKE %(search)s)"""
+            )
+            params["search"] = f"%{request.filter_search}%"
+
+        # Compose WHERE clause
+        where_clause = "WHERE " + " AND ".join(filters) if filters else ""
+
+        # Sorting and pagination
+        sort_column = request.page_order or "id"
+        sort_direction = request.page_sort or "DESC"
+        order_clause = f"ORDER BY {sort_column} {sort_direction}"
+
+        limit = request.page_limit or 10
+        offset = (request.page_start - 1) * limit if request.page_start else 0
+
+        params["limit"] = limit
+        params["offset"] = offset
+
+        limit_offset_clause = "LIMIT %(limit)s OFFSET %(offset)s"
+
+        total_users_sql = """
+            SELECT COUNT(*) AS total_staff_count FROM usr WHERE isdel = 0 AND status = 0 AND sch_id = %s"""
+        sql_data = f"""
+            SELECT uid, id, sch_id, name, ic, hp, mel, syslevel, jobdiv, jobsta, status, ts, adm, delts, delby,
+                   nick, sex, bday, race, religion, file, citizen, edulevel, marital, bstate,
+                   job, joblvl, jobstart, jobend, jobconfirm, excontract, exvisa, expassport, expermit,
+                   isdel, addr, addr1, addr2, city, pcode, state, country,
+                   mailaddr, mailaddr2, mailaddr3, mailcity, mailpcode, mailstate, mailcountry, spname, spic, spjob, spcomp, sptel, spjob, json_data
+            FROM usr
+            {where_clause}
+            {order_clause}
+            {limit_offset_clause}
         """
-
+        # try:
+        #     async with self.db.cursor(aiomysql.DictCursor) as cursor:
+        #         await cursor.execute(sql_data, params)
+        #         result = await cursor.fetchall()
         try:
             async with self.db.cursor(aiomysql.DictCursor) as cursor:
+                # Execute the total count query
+                await cursor.execute(total_users_sql, (request.filter_branch_id,))
+                total_result = await cursor.fetchone()
+                total_count = total_result["total_staff_count"]
+
+                # Now execute the data query
                 await cursor.execute(sql_data, params)
                 result = await cursor.fetchall()
 
@@ -718,7 +851,6 @@ class CoaUserManager(
                 obj.is_delete = row["isdel"]
                 obj.system_level = row["syslevel"] if row["syslevel"] else ""
                 obj.user_type = "sataff"
-
                 obj.system = System()
                 obj.system.create_at = row["ts"]
                 obj.system.create_by = row["adm"]
@@ -765,7 +897,6 @@ class CoaUserManager(
                 obj.job.salary = "<reserved>"
                 obj.job.specialization = "<reserved>"
                 obj.job.qualification = row["edulevel"]
-
                 obj.address = Address()
                 obj.address.main = AddressData()
                 obj.address.main.line1 = row["addr"]
@@ -775,7 +906,6 @@ class CoaUserManager(
                 obj.address.main.postcode = row["pcode"]
                 obj.address.main.state = row["state"]
                 obj.address.main.country = row["country"]
-
                 obj.address.address2 = AddressData()
                 obj.address.address2.line1 = row["mailaddr"]
                 obj.address.address2.line2 = row["mailaddr2"]
@@ -785,12 +915,8 @@ class CoaUserManager(
                 obj.address.address2.state = row["mailstate"]
                 obj.address.address2.country = row["mailcountry"]
                 obj.address.address2.district = "<reserved>"
-
                 obj.address.address3 = "<reserved>"
-                    
-
                 # education
-
                 obj.family = Family()
                 obj.family.spouse_name = row["spname"]
                 obj.family.spouse_ic = row["spic"]
@@ -798,29 +924,63 @@ class CoaUserManager(
                 obj.family.spouse_company = row["spcomp"]
                 obj.family.spouse_phone = row["sptel"]
                 obj.family.spouse_email = "<reserved>"
-                obj.family.father_name = ""
-                obj.family.mother_name = ""
                 json_data = row["json_data"]
                 if json_data:
                     try:
                         jd = json.loads(json_data)
-                        obj.family.father_name = jd.get('father_name', '') or ''
-                        obj.family.mother_name = jd.get('mother_name', '') or ''
+                        obj.family.father_name = jd.get("father_name", "") or ""
+                        obj.family.mother_name = jd.get("mother_name", "") or ""
                     except json.JSONDecodeError:
-                        pass 
+                        pass
                 obj.family.children = []
-               
                 # Append data
-
                 users.append(obj)
+                self.total_count = total_count
+                self.total_data = len(users)
+
+                # print(users)
 
             return await self._return_true(
                 message="Staff list data fetched successfully",
-                data=users,
+                data={
+                    "total_count": self.total_count,
+                    "total_data": self.total_data,
+                    "data": users,
+                },
             )
 
         except (ValueError, KeyError) as e:
             self.err_id = str(e)
             return await self._return_false(
                 message="Internal Server Error", error=str(e)
+            )
+
+    async def create_user(
+        self,
+        request: UserSchema,
+        address: AddressSchema,
+        personal: PersonalSchema,
+        job: JobSchema,
+        system: SystemSchema,
+        family: FamilySchema
+    ):
+        # Map the request data to the main table
+        data = self._main_table_mapping(request, address, personal, job, system, family)
+        # Insert the data into the database
+        sql = f"""
+            INSERT INTO {self.main_table} ({', '.join(data.keys())})
+            VALUES ({', '.join(['%s'] * len(data))})
+        """
+        # "INSERT INTO usr (uid, pass, " . implode(', ', $columns) . ") VALUES ('$uid', md5('12345'),'" . implode("','", $values) . "')";
+        try:
+            async with self.db.cursor() as cursor:
+                await cursor.execute(sql, tuple(data.values()))
+                await self.db.commit()
+                return await self._return_true(
+                    message="User created successfully", data=data
+                )
+        except Exception as e:
+            self.err_id = str(e)
+            return await self._return_false(
+                message="Failed to create user", error=str(e)
             )

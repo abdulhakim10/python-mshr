@@ -162,3 +162,25 @@ class BankInfo:
         self.main = Bank()            # Main bank info
         self.bank2 = Bank()           # Secondary bank info
         self.bank3 = Bank()           # Tertiary bank info
+
+# {
+#   "id": "30",
+#   "uid": "21052025",
+#   "branch_id": "0",
+#   "ic": "20250521",
+#   "name": "Test User",
+#   "email": "test@email.com",
+#   "phone": "234567890",
+#   "user_no": "",
+#   "category": "",
+#   "category_name": "",
+#   "group": "A",
+#   "group_name": "ML",
+#   "subgroup": "",
+#   "subgroup_name": "sting",
+#   "status": "0",
+#   "status_name": "",
+#   "is_delete": "0",
+#   "login_status": "0",
+#   "system_level": "ACL01",
+# }

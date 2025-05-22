@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI
 import uvicorn
+from app.databases.mysql.mysql import mysql_pool
 
 from app.routes import example
 from app.routes import user
@@ -26,20 +27,13 @@ app_info = {
     "url": "https://testcorp.com/app"
 }
 
-payload = {
-    "personal": {"name": "Ali"},
-    "address": {"city": "Kuala Lumpur"},
-    "job": {"position": "Manager"},
-}
 
-# Dummy DB class with .select()
-class DummyDB:
-    def select(self, query):
-        print(f"Running query: {query}")
-        return [{"bos_config": '{"TIMEZONE":"Asia/Kuala_Lumpur"}'}]
 
-# Initialize staff handler
-# staff = Staff(app_info=app_info, db=DummyDB(), data=payload)
+@app.on_event("shutdown")
+async def shutdown_event():
+    if mysql_pool:
+        mysql_pool.close()
+        await mysql_pool.wait_closed()
 
 
 if __name__ == "__main__":

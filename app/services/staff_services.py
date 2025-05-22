@@ -1,12 +1,11 @@
 import os, json
 from datetime import datetime
 import aiomysql
-
+from app.utils.error import ErrorHandler
 
 # from app.databases.mysql.db_connector import DBConnector
 from app.objects.user_objects import User, Job, Personal, System
 from app.objects.common_objects import DataFilter, DataPaginate, StandardProperties
-
 
 class StaffData(User):
     def __init__(self):
@@ -19,20 +18,22 @@ class StaffData(User):
         self.education = None
         self.work_experience = None
 
-
 class Staff(DataPaginate, DataFilter, StandardProperties):
-    def __init__(self, db=None):
+    def __init__(self, db=None, data=None):
         super().__init__()  # Initialize parent classes
+        DataPaginate.__init__(self)
+        DataFilter.__init__(self)
+        StandardProperties.__init__(self)
 
         self.Data = StaffData()
-        # self.payload = data
+        self.payload = data
         self.total_data = 0
-        # self.total_count = 0
-        # self.msg = ""
-        # self.success = False
-        # self.status_code = 200
+        self.total_count = 0
+        self.msg = ""
+        self.success = False
+        self.status_code = 200
 
-        # # App metadata
+        # App metadata (placeholders)
         # self.user_id = app_info.get("uid") if app_info else None
         # self.branch_id = app_info.get("sch_id") if app_info else None
         # self.user_branch_id = app_info.get("user_sid") if app_info else None
@@ -41,15 +42,15 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
         # self.system_level = app_info.get("syslevel") if app_info else None
         # self.system_access = app_info.get("system_access") if app_info else None
         self.DB = db
-        # self.Err = None  # Placeholder
-        # self.err_id = ""
-        # self.debug = False
+        self.Err = ErrorHandler()  # Placeholder
+        self.err_id = ""
+        self.debug = False
 
-        # Parse and apply incoming data
+        # Parse and apply incoming data (commented out in original)
         # if data:
         #     self.set_data_from_payload(data)
 
-        # self.get_timezone()
+        # self.get_timezone() (commented out in original)
 
     # def set_data_from_payload(self, data):
     #     for key, value in data.items():
@@ -76,15 +77,68 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
     #     except ValueError:
     #         return None
 
+
     async def staff_list(self):
-        sql_data = """
+        filters = []
+
+        # Apply filters from DataFilter
+        if self.filter_delete is not None:
+            filters.append(f"isdel = {int(self.filter_delete)}")
+        else:
+            filters.append("isdel = 0")
+
+        if self.filter_branch_id:
+            filters.append(f"sch_id = '{self.filter_branch_id}'")
+
+        if self.filter_division:
+            filters.append(f"jobdiv = '{self.filter_division}'")
+
+        if self.filter_position:
+            filters.append(f"job = '{self.filter_position}'")
+
+        if self.filter_status:
+            filters.append(f"jobsta = '{self.filter_status}'")
+
+        if self.filter_gender:
+            filters.append(f"sex = '{self.filter_gender}'")
+
+        if self.filter_user_status:
+            filters.append(f"status = '{self.filter_user_status}'")
+
+        if self.filter_search:
+            search = self.filter_search
+            filters.append(f"(name LIKE '%{search}%' OR ic LIKE '%{search}%' OR mel LIKE '%{search}%')")
+
+        # Compose WHERE clause
+        where_clause = " AND ".join(filters)
+        if where_clause:
+            where_clause = f"WHERE {where_clause}"
+
+        # Compose sorting and pagination
+        sort_column = self.page_order or "id"
+        sort_direction = self.page_sort or "desc"
+        order_clause = f"ORDER BY {sort_column} {sort_direction}"
+
+        limit_clause = f"LIMIT {self.page_limit}" if self.page_limit else ""
+        offset_clause = ""
+        if self.page_limit and self.page_start:
+            offset = self.page_limit * (self.page_start - 1)
+            offset_clause = f"OFFSET {offset}"
+
+        # Final SQL
+        sql_data = f"""
             SELECT uid, id, sch_id, name, ic, hp, mel, syslevel, jobdiv, jobsta, status, ts, adm, delts, delby,
                    nick, sex, bday, race, religion, file, citizen, edulevel, marital, bstate,
                    job, joblvl, jobstart, jobend, jobconfirm, excontract, exvisa, expassport, expermit,
                    isdel
             FROM usr
-            WHERE isdel = 0
+            {where_clause}
+            {order_clause}
+            {limit_clause}
+            {offset_clause}
         """
+
+        # Fetch data
         params = []
         async with self.DB.cursor(aiomysql.DictCursor) as cursor:
             await cursor.execute(sql_data)
@@ -92,8 +146,6 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
 
         for row in result:
             obj = User()
-
-            # Basic Info
             obj.id = row["id"]
             obj.uid = row["uid"]
             obj.app_code = "<reserved>"
@@ -114,18 +166,7 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
             obj.system_level = row.get("syslevel", "")
             obj.user_type = "staff"
 
-            # Status Name Lookup
-            status_sql = """
-                SELECT prm FROM type
-                WHERE grp = 'usrstatus'
-                  AND (sid = 0 OR sid = %s)
-                  AND val = %s
-            """
-            # status_params = [obj.branch_id, obj.status]
-            # status_result = []  # await self.DB.execute_fetch(status_sql, status_params)
-            # obj.status_name = status_result[0]["prm"] if status_result else ""
-
-            # System Object
+            # System object
             system = System()
             system.create_at = row["ts"]
             system.create_by = row["adm"]
@@ -134,11 +175,9 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
             system.delete_at = row["delts"]
             system.delete_by = row["delby"]
             system.module = "staff"
-            system.firebase_id = ""
-            system.user_level = ""
             obj.system = system
 
-            # Personal Object
+            # Personal object
             personal = Personal()
             personal.full_name = row["name"]
             personal.nick_name = row.get("nick", "")
@@ -150,25 +189,21 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
             personal.file_profile_path = "/content/staff/"
             personal.file_profile_url = (
                 f"{self.root_url}/content/staff/{row['file']}"
-                if row.get("file")
-                else ""
+                if row.get("file") else ""
             )
             personal.primary_phone = row["hp"]
-            personal.secondary_phone = "<reserved>"
             personal.primary_email = row["mel"]
-            personal.secondary_email = "<reserved>"
             personal.citizen = row.get("citizen", "")
             personal.education = row.get("edulevel", "")
             personal.marital = row.get("marital", "")
             personal.birth_place = row.get("bstate", "")
             obj.personal = personal
 
-            # Job Object
+            # Job object
             job = Job()
             job.designation = row.get("job", "")
             job.division = row.get("jobdiv", "")
             job.status = row.get("jobsta", "")
-            job.level = "<reserved>"
             job.grade = row.get("joblvl", "")
             job.start_date = row.get("jobstart", "")
             job.end_date = row.get("jobend", "")
@@ -177,15 +212,26 @@ class Staff(DataPaginate, DataFilter, StandardProperties):
             job.visa_expiry = row.get("exvisa", "")
             job.passport_expiry = row.get("expassport", "")
             job.permit_expiry = row.get("expermit", "")
-            job.salary = "<reserved>"
-            job.specialization = "<reserved>"
             job.qualification = row.get("edulevel", "")
             obj.job = job
 
-            # Append data
-            params.append(obj)
-            # print(params)
             self.total_data += 1
+            total = self.total_data
+            
+            params.append(obj)
 
-        # Return final result
-        return {"message": "Staff list data fetched successfully", "data": params}
+        return {"total_data": total, "message": "Staff list data fetched successfully", "data": params}
+
+    async def get_filtered_staff(self,db, filter_data: dict, paginate_data: dict):
+        staff_service = Staff(db=db)
+        # Apply filter data
+        for key, value in filter_data.items():
+            if hasattr(staff_service, key):
+                setattr(staff_service, key, value)
+         # Apply pagination data
+        for key, value in paginate_data.items():
+            if hasattr(staff_service, key):
+                setattr(staff_service, key, value)
+        return await staff_service.staff_list()
+
+   
